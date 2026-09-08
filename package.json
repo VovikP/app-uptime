@@ -1,0 +1,9 @@
+{
+  "name": "app-uptime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Незалежний запис доступності застосунків Atlassian Marketplace: що каже статус-сторінка вендора проти того, що показує пряма проба.",
+  "scripts": { "collect": "node collect.js" },
+  "engines": { "node": ">=20" }
+}

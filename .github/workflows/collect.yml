@@ -1,0 +1,49 @@
+name: collect
+
+# Кожні 10 хвилин. GitHub виконує заплановані задачі за принципом "коли зможе",
+# тому реальний інтервал плаває — для запису доступності це прийнятно, бо ми
+# фіксуємо спостереження з міткою часу, а не рівномірну сітку.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:        # щоб можна було запустити вручну
+
+permissions:
+  contents: write           # воркфлоу комітить зібрані дані назад у репозиторій
+
+concurrency:
+  group: collect            # два прогони одночасно писали б у той самий файл
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Збір
+        run: node collect.js
+
+      - name: Коміт, якщо є зміни
+        run: |
+          git config user.name  "app-uptime bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          # Порожній коміт означав би, що збір нічого не дав — це помилка,
+          # а не нормальний стан, тому мовчки не пропускаємо.
+          if git diff --staged --quiet; then
+            echo "::warning::збір не дав нових рядків — перевір collect.js"
+            exit 0
+          fi
+          git commit -m "data: $(date -u +'%Y-%m-%dT%H:%MZ')"
+          # Інший прогін міг закомітити раніше; підтягуємо і повторюємо.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            sleep 5
+          done
+          echo "::error::не вдалося запушити після 3 спроб"; exit 1
